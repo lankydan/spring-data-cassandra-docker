@@ -1,6 +1,6 @@
 I'm continuing my journey of learning Docker. I am still keeping it simple at this point. This time around, I am going to tackle converting a Spring and Cassandra application to use containers instead of running locally on the host machine. More precisely, using Spring Data Cassandra to sort out the application. 
 
-I wish I looked at doing this change a while ago. I have written a fair amount of posts on Cassandra and each time I had to `cd` to the correct directory or have a shortcut to start it up. I guess it's not that big a of a deal, but there were a few other things involved. Such as, dropping and recreating keyspaces so I could test my application from scratch. Now, I just delete the container and restart it. To me anyway, this is helpful!
+I wish I looked at doing this change a while ago. I have written a fair amount of posts on Cassandra and each time I had to `cd` to the correct directory or have a shortcut to start it up. I guess it's not that big of a deal, but there were a few other things involved. Such as, dropping and recreating keyspaces so I could test my application from scratch. Now, I just delete the container and restart it. To me anyway, this is helpful!
 
 This post will be slightly different from my previous post, [Using Docker to shove an existing application into containers](https://lankydanblog.com/2018/09/02/using-docker-to-shove-an-existing-application-into-some-containers/). Instead, I will focus slightly more on the application side and remove the intermediate steps of using only Docker and instead will jump straight into Docker Compose.
 
@@ -8,7 +8,7 @@ This post will be slightly different from my previous post, [Using Docker to sho
 
 I think it's best to start on the container side of the project since the application depends on the configuration of the Cassandra container.
 
-Lets go!
+Let's go!
 ```Dockerfile
 FROM openjdk:10-jre-slim
 LABEL maintainer="Dan Newton"
@@ -31,7 +31,7 @@ services:
   cassandra:
     image: "cassandra"
 ```
-Again, there isn't too much here. The `app` container builds the Spring application using the `Dockerfile` defined previously. The `cassandra` container instead relies on a existing image, appropriately named `cassandra`. 
+Again, there isn't too much here. The `app` container builds the Spring application using the `Dockerfile` defined previously. The `cassandra` container instead relies on an existing image, appropriately named `cassandra`. 
 
 One thing that stands out is that the `restart` property is set to `always`. This was my lazy attempt to get past how long Cassandra takes to start and the fact that all the containers started with `docker-compose` start at the same time. This lead to a situation where the application is trying to connect to Cassandra without it being ready. Unfortunately, this leads to the application dying. I hoped that it would have some retry capability for initial connectivity built in... But it does not.
 
@@ -39,7 +39,7 @@ When we go through the code, we will see how to deal with the initial Cassandra 
 
 ### A dash of code
 
-I said this post would focus more on the application code, which it will, but we are not going to dive into everything I put within this application and how to use Cassandra. For that sort of information you can have a look at my older posts, which I'll link at the end. What we will do though, is examine the configuration code that creates the beans that connect to Cassandra.
+I said this post would focus more on the application code, which it will, but we are not going to dive into everything I put within this application and how to use Cassandra. For that sort of information, you can have a look at my older posts, which I'll link at the end. What we will do though, is examine the configuration code that creates the beans that connect to Cassandra.
 
 First, let's go through `ClusterConfig` which sets up the Cassandra cluster:
 ```java
@@ -110,13 +110,13 @@ There isn't too much there, but there would be even less if Spring would retry t
 
 The original reason I created `ClusterConfig` was to create the keyspace that the application will use. To do this `getKeyspaceCreations` was overridden. When the application connects it will execute the query defined in this method to create the keyspace. 
 
-If this wasn't needed and the keyspace was created in some other way, for example a script executed as part of creating the Cassandra container, Spring Boot's auto-configuration could be relied upon instead. This actually allows the whole application to be configured by the properties defined in `application.properties` and nothing else. Alas, it was not meant to be.
+If this wasn't needed and the keyspace was created in some other way, for example, a script executed as part of creating the Cassandra container, Spring Boot's auto-configuration could be relied upon instead. This actually allows the whole application to be configured by the properties defined in `application.properties` and nothing else. Alas, it was not meant to be.
 
-Since we have defined an `AbstractClusterConfiguration`, Spring Boot will disable it's configuration in this area. Therefore, we need to define the `contactPoints` (I named the variable `hosts`) manually by overriding the `getContactPoints` method. Originally this was only defined in `application.properties`. I realised I needed to make this change once I started getting the following error:
+Since we have defined an `AbstractClusterConfiguration`, Spring Boot will disable its configuration in this area. Therefore, we need to define the `contactPoints` (I named the variable `hosts`) manually by overriding the `getContactPoints` method. Originally this was only defined in `application.properties`. I realised I needed to make this change once I started getting the following error:
 ```
 All host(s) tried for query failed (tried: localhost/127.0.0.1:9042 (com.datastax.driver.core.exceptions.TransportException: [localhost/127.0.0.1:9042] Cannot connect))
 ```
-Before I created created `ClusterConfig` the address was `cassandra` rather than `localhost`. 
+Before I created `ClusterConfig` the address was `cassandra` rather than `localhost`. 
 
 No other properties for the cluster need to be configured as Spring's defaults are good enough for this scenario.
 
@@ -128,7 +128,7 @@ spring.data.cassandra.contact-points=cassandra
 ```
 `keyspace-name` and `contact-points` have already popped up since they are related to configuring the cluster. `schema-action` is needed to create tables based on the entities in the project. We don't need to do anything else here as auto-configuration is still working in this area.
 
-The fact that the `contact-points` value is set to `cassandra` is very important. This domain name originates from the name given to the container, in this case `cassandra`. Therefore either `cassandra` can be used or the actual IP of the container. The domain name is definitely easier since it will always be static between deployments. Just to test this theory out, you can change the name of the `cassandra` container to whatever you whatever you want and it will still connect, as long as you change it in the `application.properties` as well.
+The fact that the `contact-points` value is set to `cassandra` is very important. This domain name originates from the name given to the container, in this case, `cassandra`. Therefore either `cassandra` can be used or the actual IP of the container. The domain name is definitely easier since it will always be static between deployments. Just to test this theory out, you can change the name of the `cassandra` container to whatever you whatever you want and it will still connect, as long as you change it in the `application.properties` as well.
 
 Back to the `ClusterConfig` code. More precisely, the `cluster` bean. I have pasted the code below again so it's easier to look at:
 ```java
@@ -209,13 +209,13 @@ public class RetryingCassandraClusterFactoryBean extends CassandraClusterFactory
   }
 }
 ```
-The `afterPropertiesSet` method in the original `CassandraClusterFactoryBean` takes its values and creates the representation of a Cassandra cluster by finally delegating to the Datastax Java driver. As I have mentioned throughout the post. If it fails to establish a connection, an exception will be thrown and if not caught will cause the application to terminate. That is the whole point of the above code. It wraps the `afterPropertiesSet` in a try catch block specified for the exceptions that can be thrown.
+The `afterPropertiesSet` method in the original `CassandraClusterFactoryBean` takes its values and creates the representation of a Cassandra cluster by finally delegating to the Datastax Java driver. As I have mentioned throughout the post. If it fails to establish a connection, an exception will be thrown and if not caught will cause the application to terminate. That is the whole point of the above code. It wraps the `afterPropertiesSet` in a try-catch block specified for the exceptions that can be thrown.
 
 The `sleep` is added to give Cassandra some time to actually start up. There is no point trying to reconnect straight away when the previous attempt failed.
 
 Using this code the application will eventually connect to Cassandra.
 
-At this point I would normally show you some meaningless logs to prove that the application works, but in this situation it really does not bring anything to the table. Just trust me when I say, if you run the below command:
+At this point, I would normally show you some meaningless logs to prove that the application works, but in this situation, it really does not bring anything to the table. Just trust me when I say, if you run the below command:
 ```
 mvn clean install && docker-compose up
 ```
@@ -223,4 +223,4 @@ Then the Spring application image is created and both containers are spun up.
 
 ### Conclusion
 
-We have had a look at how to put a Spring application that connects to a Cassandra database into containers. One for the application and another for Cassandra. The application image is built from the project's code, whereas the Cassandra image is taken from Docker Hub. The image name is `cassandra` just to make sure no one forgets. In general connecting the two containers together was relatively simple but the application needed some adjustments to retry connecting to Cassandra running in the other container. This made the code a bit uglier, but it works at least... Thanks to the code written in this post, I now have another application that I don't need to setup on my own machine.
+We have had a look at how to put a Spring application that connects to a Cassandra database into containers. One for the application and another for Cassandra. The application image is built from the project's code, whereas the Cassandra image is taken from Docker Hub. The image name is `cassandra` just to make sure no one forgets. In general connecting the two containers together was relatively simple but the application needed some adjustments to retry connecting to Cassandra running in the other container. This made the code a bit uglier, but it works at least... Thanks to the code written in this post, I now have another application that I don't need to set up on my own machine.
