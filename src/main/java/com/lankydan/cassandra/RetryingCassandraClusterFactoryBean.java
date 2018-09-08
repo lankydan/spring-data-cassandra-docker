@@ -13,17 +13,17 @@ public class RetryingCassandraClusterFactoryBean extends CassandraClusterFactory
 
   @Override
   public void afterPropertiesSet() throws Exception {
-    retryConnection();
+    connect();
   }
 
-  private void retryConnection() throws Exception {
+  private void connect() throws Exception {
     try {
       super.afterPropertiesSet();
     } catch (TransportException | IllegalArgumentException | NoHostAvailableException e) {
       LOG.warn(e.getMessage());
       LOG.warn("Retrying connection in 10 seconds");
       sleep();
-      retryConnection();
+      connect();
     }
   }
 

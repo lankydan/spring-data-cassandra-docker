@@ -24,6 +24,7 @@ public class ClusterConfig extends AbstractClusterConfiguration {
   }
 
   @Bean
+  @Override
   public CassandraClusterFactoryBean cluster() {
 
     RetryingCassandraClusterFactoryBean bean = new RetryingCassandraClusterFactoryBean();
@@ -66,8 +67,8 @@ public class ClusterConfig extends AbstractClusterConfiguration {
     return List.of(specification);
   }
 
-  @Override
-  protected String getContactPoints() {
-    return hosts;
-  }
+ @Override
+ protected String getContactPoints() {
+   return hosts;
+ }
 }
